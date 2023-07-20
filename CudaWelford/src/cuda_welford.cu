@@ -73,7 +73,7 @@ long N = 0;
 }
 
 // Note: try to run her again with just smaller size and different structure. See output and take it as input
-__global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0, bool firstRun) {
+__global__ void kernelWelford2B(float *g_data, float *g_out, int n0, bool firstRun) {
     extern __shared__ float sdata[];
     int diff = n0;
     int N = 2*blockDim.x;
@@ -83,13 +83,16 @@ __global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0, b
     unsigned int tid = threadIdx.x;
 
     int idx =  blockIdx.x * (blockDim.x) + tid;
-    int idx2 = tid + dimx;
-    int dT = Nhalf0;
+    int idx2 = tid + Nhalf;
+    int dT = Nhalf;
     float M, M2, T, T2, T0;
     M = 0;
     M2 = 0;
     if (firstRun){
       sdata[tid] = 0; // e.g. M
+      sdata[tid] = g_data[idx+Nhalf]; // e.g. M
+      dT = 0;
+      // sdata[tid+Nhalf] = g_out[idx+Nhalf]; // e.g. M
     }else{
       sdata[tid] = g_out[idx]; // e.g. M
     }
@@ -98,68 +101,23 @@ __global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0, b
     // printf("Idx %d, %d, %d, %d\n", idx, dimx, dT, Nhalf);
     // printf("Init %f, %f\n", sdata[tid], sdata[tid + Nhalf]);
     __syncthreads();
-    M = sdata[tid];
-    N/=2;
-    Nhalf/=2;
-    while (Nhalf>0){
-        idx2 = tid + Nhalf;
-        M2 = sdata[idx2];
-        if (tid == 1){
-          // printf("Idx %d, %d, %d, %d, %d, %d\n", tid, idx2, tid+dT, idx2+dT, Nhalf, N);
-        }
-        if (tid < Nhalf)
-        {
-          T = sdata[tid+dT];
-          T2 = sdata[idx2+dT];
-          // printf("Values %f, %f, %f, %f\n", M, M2, T, T2);
-          T0 = (T - T2);
-          
-          M = M + M2 + T0*T0/(2*diff);
-          sdata[tid] = M;
-          T += T2;
-          sdata[tid+dT] = T;
-        }
-        diff*=2;
-        N /= 2;
-        Nhalf = N/2;
-        __syncthreads();
+    if (!firstRun){
+      M = sdata[tid];
+      N/=2;
+      Nhalf/=2;
+      M2 = sdata[tid + Nhalf];
     }
-    if (tid == 0){
-      g_data[blockIdx.x] = T;//(blockDim.x*2);
-      // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+gridDim.x], blockIdx.x);
-      g_out[blockIdx.x] = M;//(blockDim.x*2 - 1);
-      // printf("Results kernel M: %f, %d, %f %d \n", M, gridDim.x, g_out[blockIdx.x], blockIdx.x);
-    }
-}
-
-__global__ void kernelWelford2(float *g_data, float *g_out, int dimx) {
-    extern __shared__ float sdata[];
-    int diff = 1;
-    int N = 2*blockDim.x;
     
-    int Nhalf = N/2;
-    int Nhalf0 = Nhalf;
-    unsigned int tid = threadIdx.x;
-
-    int idx =  blockIdx.x * (blockDim.x*2) + tid;
-    int idx2 = tid + Nhalf;
-    int dT = 0;
-    float M, M2, T, T2, T0;
-    M = 0;
-    M2 = 0;
-    sdata[tid] = g_data[idx];
-    sdata[tid + Nhalf] = g_data[idx + Nhalf];
-    __syncthreads();
-
-    while (N>0){
+    
+    while (Nhalf>0){
         idx2 = tid + Nhalf;
         
         if (tid < Nhalf)
         {
           T = sdata[tid+dT];
           T2 = sdata[idx2+dT];
+          // printf("Values %f, %f, %f, %f\n", M, M2, T, T2);
           T0 = (T - T2);
-       
           
           M = M + M2 + T0*T0/(2*diff);
           sdata[tid] = M;
@@ -171,13 +129,13 @@ __global__ void kernelWelford2(float *g_data, float *g_out, int dimx) {
         N /= 2;
         Nhalf = N/2;
         __syncthreads();
-        M2 = sdata[tid+Nhalf];
+        M2 = sdata[tid + Nhalf];
     }
     if (tid == 0){
       g_data[blockIdx.x] = T;//(blockDim.x*2);
-      // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+dimx/2], blockIdx.x);
+      // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+gridDim.x], blockIdx.x);
       g_out[blockIdx.x] = M;//(blockDim.x*2 - 1);
-      // printf("Results kernel M: %f, %d, %f %d \n", M, dimx, g_out[blockIdx.x], blockIdx.x);
+      // printf("Results kernel M: %f, %d, %f %d \n", M, gridDim.x, g_out[blockIdx.x], blockIdx.x);
     }
 }
 
@@ -239,11 +197,11 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
   cudaGetDeviceProperties(&prop, 0);
   int num_sms = prop.multiProcessorCount;
   int blockSize = 1024;
-  nBlocks = dimx/blockSize;
+  nBlocks = dimx/2/blockSize;
   dim3 block(blockSize, 1);
   dim3 grid(nBlocks, 1);
-  // kernelWelford2<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx);
-  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx, 1, true);
+
+  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1, true);
 
   dimx = nBlocks;
   blockSize = min(1024, dimx);
@@ -251,7 +209,7 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
   nBlocks = dimx/blockSize;
   block.x = blockSize;
   grid.x = nBlocks;
-  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx, 1024, false);
+  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1024, false);
 
   // kernelWelford<<<grid, block>>>(d_data, d_out, dimx);
 }
