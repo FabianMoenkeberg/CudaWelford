@@ -73,7 +73,7 @@ long N = 0;
 }
 
 // Note: try to run her again with just smaller size and different structure. See output and take it as input
-__global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0) {
+__global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0, bool firstRun) {
     extern __shared__ float sdata[];
     int diff = n0;
     int N = 2*blockDim.x;
@@ -88,8 +88,13 @@ __global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0) {
     float M, M2, T, T2, T0;
     M = 0;
     M2 = 0;
-    sdata[tid] = g_data[idx];
-    sdata[tid + Nhalf] = g_data[idx + dimx];
+    if (firstRun){
+      sdata[tid] = 0; // e.g. M
+    }else{
+      sdata[tid] = g_out[idx]; // e.g. M
+    }
+    
+    sdata[tid + Nhalf] = g_data[idx]; // e.g. T
     // printf("Idx %d, %d, %d, %d\n", idx, dimx, dT, Nhalf);
     // printf("Init %f, %f\n", sdata[tid], sdata[tid + Nhalf]);
     __syncthreads();
@@ -120,7 +125,7 @@ __global__ void kernelWelford2B(float *g_data, float *g_out, int dimx, int n0) {
         __syncthreads();
     }
     if (tid == 0){
-      g_out[blockIdx.x+gridDim.x] = T;//(blockDim.x*2);
+      g_data[blockIdx.x] = T;//(blockDim.x*2);
       // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+gridDim.x], blockIdx.x);
       g_out[blockIdx.x] = M;//(blockDim.x*2 - 1);
       // printf("Results kernel M: %f, %d, %f %d \n", M, gridDim.x, g_out[blockIdx.x], blockIdx.x);
@@ -169,7 +174,7 @@ __global__ void kernelWelford2(float *g_data, float *g_out, int dimx) {
         M2 = sdata[tid+Nhalf];
     }
     if (tid == 0){
-      g_out[blockIdx.x+gridDim.x] = T;//(blockDim.x*2);
+      g_data[blockIdx.x] = T;//(blockDim.x*2);
       // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+dimx/2], blockIdx.x);
       g_out[blockIdx.x] = M;//(blockDim.x*2 - 1);
       // printf("Results kernel M: %f, %d, %f %d \n", M, dimx, g_out[blockIdx.x], blockIdx.x);
@@ -234,18 +239,19 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
   cudaGetDeviceProperties(&prop, 0);
   int num_sms = prop.multiProcessorCount;
   int blockSize = 1024;
-  nBlocks = dimx/2/blockSize;
+  nBlocks = dimx/blockSize;
   dim3 block(blockSize, 1);
   dim3 grid(nBlocks, 1);
-  kernelWelford2<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx);
-  
+  // kernelWelford2<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx);
+  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx, 1, true);
+
   dimx = nBlocks;
   blockSize = min(1024, dimx);
   printf("Blocksize: %d\n", blockSize);
   nBlocks = dimx/blockSize;
   block.x = blockSize;
   grid.x = nBlocks;
-  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_out, d_data, dimx, 1024);
+  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, dimx, 1024, false);
 
   // kernelWelford<<<grid, block>>>(d_data, d_out, dimx);
 }
@@ -273,22 +279,22 @@ float algorithmWelford(float *d_data, float *d_out, int dimx, int& nBlocks) {
   return elapsed_time_ms;
 }
 
-void calcRemainingVar(float* h_data, int dimx, int nBlocks, float* totvar, float* totmean){
-  *totvar = h_data[0];
-  *totmean = h_data[0+nBlocks];
+void calcRemainingVar(float* h_data, float* h_out, int dimx, int nBlocks, float* totvar, float* totmean){
+  *totvar = h_out[0];
+  *totmean = h_data[0];
   float diff;
   int n = dimx/nBlocks; 
   float m = static_cast<float>(dimx/nBlocks);
 
   for(int i = 0; i < nBlocks; ++i){
-    printf("Results kernel %d: M %f,  T %f, N %d \n", i, h_data[i], h_data[i+nBlocks], dimx/nBlocks);
+    printf("Results kernel %d: M %f,  T %f, N %d \n", i, h_out[i], h_data[i], dimx/nBlocks);
   }
   for(int i = 1; i < nBlocks; ++i){
     n+= dimx/nBlocks;
-    diff = (*totmean - (n-m)*h_data[i+nBlocks]/m);
+    diff = (*totmean - (n-m)*h_data[i]/m);
     // printf("diff: %f, %f, %f, %f\n", diff, h_data[i], totvar, h_data[i] +m*diff*diff/(n-m)/n);
-    *totvar += h_data[i] +m*diff*diff/(n-m)/n;
-    *totmean+=h_data[i+nBlocks];
+    *totvar += h_out[i] +m*diff*diff/(n-m)/n;
+    *totmean+=h_data[i];
   }
 }
 
@@ -300,7 +306,7 @@ int run_welford() {
 
   int nbytes = dimx * sizeof(float);
 
-  float *d_data = 0, *h_data = 0, *h_gold = 0, *d_out = 0;
+  float *d_data = 0, *h_data = 0, *h_out, *h_gold = 0, *d_out = 0;
   cudaMalloc((void **)&d_data, nbytes);
   cudaMalloc((void **)&d_out, nbytes);
   if (0 == d_data) {
@@ -309,6 +315,7 @@ int run_welford() {
   }
   printf("allocated %.2f MB on GPU\n", nbytes / (1024.f * 1024.f));
   h_data = (float *)malloc(nbytes);
+  h_out = (float *)malloc(nbytes);
   h_gold = (float *)malloc(nbytes);
   if (0 == h_data || 0 == h_gold) {
     printf("couldn't allocate CPU memory\n");
@@ -329,12 +336,12 @@ int run_welford() {
   float time = algorithmWelford(d_data, d_out, dimx, nBlocks);
 
   cudaMemcpy(h_data, d_data, nbytes, cudaMemcpyDeviceToHost);
-
+  cudaMemcpy(h_out, d_out, nbytes, cudaMemcpyDeviceToHost);
   float var0 = 0;
   float mean0 = 0;
   float* totvar = &var0;
   float* totmean = &mean0;
-  calcRemainingVar(h_data, dimx, nBlocks, totvar, totmean);
+  calcRemainingVar(h_data, h_out, dimx, nBlocks, totvar, totmean);
 
   std::cout << *totvar/(dimx-1) << std::endl;
   float meanCuda = *totmean/dimx;
