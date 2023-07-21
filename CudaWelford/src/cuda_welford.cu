@@ -72,6 +72,121 @@ long N = 0;
     var = M/(N-1);
 }
 
+__inline__ __device__ void warpReduceWelford(float& T0in, float& T2in, float& Min, float& M2in, int warpSize) {
+  float T0 = T0in;
+  float T2 = T2in;
+  float M = Min;
+  float M2 = M2in;
+  int n = 1;
+  float diff;
+  // printf("Warp00 %d: M2 %f, T2 %f, M %f, T %f\n", threadIdx.x, M2, T2, M, T0);
+  for (int offset = warpSize/2; offset > 0; offset /= 2){ 
+    diff = (T0 - T2);
+    // printf("Diff %d, diff %f, M %f, M2 %f, n %d, %f\n", threadIdx.x, diff, M, M2, n);
+    M = M + M2 + diff*diff/(2*n);
+    T0 += T2;
+    // printf("Warp0 %d: M2 %f, T2 %f, M %f, T %f\n", threadIdx.x, M2, T2, M, T0);
+    // __syncthreads();
+    T2 = __shfl_down_sync(0xffffffff, T0, static_cast<unsigned int>(offset), warpSize);
+    M2 = __shfl_down_sync(0xffffffff, M, static_cast<unsigned int>(offset), warpSize);
+    // printf("Warp %d: M2 %f, T2 %f, M %f, T %f\n", threadIdx.x, M2, T2, M, T0);
+    n*=2;
+  }
+
+  diff = (T0 - T2);
+  M += M2 + T0*T0/(2*n);
+  T0 += T2;
+
+  T0in = T0;
+  Min = M;
+  // return M;
+}
+
+// Note: try to run her again with just smaller size and different structure. See output and take it as input
+__global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firstRun) {
+    extern __shared__ float sdata[];
+    int diff = n0;
+    int N = 2*blockDim.x;
+
+    int Nhalf = N/2;
+    int Nhalf0 = Nhalf;
+    unsigned int tid = threadIdx.x;
+
+    int idx =  blockIdx.x * (blockDim.x) + tid;
+    int idx2 = tid + Nhalf;
+    int dT = Nhalf;
+    float T, T2, T0;
+    float M = 0.0f;
+    float M2 = 0.0f;
+    
+    if (firstRun){
+      T = g_data[idx]; // e.g. M
+      T2 = g_data[idx2];
+      // int warpSize = WarpSize();
+      int lane = tid % warpSize;
+      int wid = threadIdx.x / warpSize;
+      
+      warpReduceWelford(T, T2, M, M2, warpSize);
+      
+      if (lane==0) {
+        // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
+        sdata[wid] = M;
+        sdata[wid + dT] = T;
+      }
+      diff = 2*warpSize;
+      N/=diff;
+      Nhalf/=diff;
+
+    }else{
+      sdata[tid] = g_out[idx]; // e.g. M
+      sdata[tid + Nhalf] = g_data[idx]; // e.g. T
+    }
+    // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
+    // printf("Idx %d, %d, %d, %d\n", idx, dimx, dT, Nhalf);
+    // printf("Init %f, %f\n", sdata[tid], sdata[tid + Nhalf]);
+    __syncthreads();
+    if (!firstRun){
+      M = sdata[tid];
+      N/=2;
+      Nhalf/=2;
+      M2 = sdata[tid + Nhalf];
+    }else{
+      M = sdata[tid];
+      M2 = sdata[tid + Nhalf];
+      // printf("Nhalf %d", Nhalf);
+    }
+    // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
+    
+    while (Nhalf>0){
+        idx2 = tid + Nhalf;
+        
+        if (tid < Nhalf)
+        {
+          T = sdata[tid+dT];
+          T2 = sdata[idx2+dT];
+          // printf("Values %f, %f, %f, %f\n", M, M2, T, T2);
+          T0 = (T - T2);
+          
+          M += M2 + T0*T0/(2*diff);
+          sdata[tid] = M;
+          T += T2;
+          dT = Nhalf0;
+          sdata[tid+dT] = T;
+        }
+        diff*=2;
+        N /= 2;
+        Nhalf = N/2;
+        __syncthreads();
+        M2 = sdata[tid + Nhalf];
+    }
+    if (tid == 0){
+      g_data[blockIdx.x] = T;//(blockDim.x*2);
+      // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+gridDim.x], blockIdx.x);
+      g_out[blockIdx.x] = M;//(blockDim.x*2 - 1);
+      // printf("Results kernel M: %f, %d, %f %d \n", M, gridDim.x, g_out[blockIdx.x], blockIdx.x);
+    }
+}
+
 // Note: try to run her again with just smaller size and different structure. See output and take it as input
 __global__ void kernelWelford2B(float *g_data, float *g_out, int n0, bool firstRun) {
     extern __shared__ float sdata[];
@@ -89,15 +204,14 @@ __global__ void kernelWelford2B(float *g_data, float *g_out, int n0, bool firstR
     M = 0;
     M2 = 0;
     if (firstRun){
-      sdata[tid] = 0; // e.g. M
-      sdata[tid] = g_data[idx+Nhalf]; // e.g. M
+      sdata[tid] = g_data[idx2]; // e.g. M
       dT = 0;
-      // sdata[tid+Nhalf] = g_out[idx+Nhalf]; // e.g. M
     }else{
       sdata[tid] = g_out[idx]; // e.g. M
     }
     
-    sdata[tid + Nhalf] = g_data[idx]; // e.g. T
+    T = g_data[idx]; // e.g. T
+    sdata[tid + Nhalf] = T;
     // printf("Idx %d, %d, %d, %d\n", idx, dimx, dT, Nhalf);
     // printf("Init %f, %f\n", sdata[tid], sdata[tid + Nhalf]);
     __syncthreads();
@@ -196,16 +310,16 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
   cudaDeviceProp prop;
   cudaGetDeviceProperties(&prop, 0);
   int num_sms = prop.multiProcessorCount;
-  int blockSize = 1024;
+  int blockSize = min(1024, dimx/2);
   nBlocks = dimx/2/blockSize;
   dim3 block(blockSize, 1);
   dim3 grid(nBlocks, 1);
-
-  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1, true);
-
+  // printf("test00 %d", blockSize);
+  kernelWelfordWarp<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1, true);
+  // printf("test000 %d", nBlocks); 
   dimx = nBlocks;
   blockSize = min(1024, dimx);
-  printf("Blocksize: %d\n", blockSize);
+  // printf("Blocksize: %d\n", blockSize);
   nBlocks = dimx/blockSize;
   block.x = blockSize;
   grid.x = nBlocks;
@@ -226,7 +340,7 @@ float algorithmWelford(float *d_data, float *d_out, int dimx, int& nBlocks) {
   // int nBlocks = 0;
   launchKernelWelford(d_data, d_out, dimx, nBlocks);
   
-  printf("number of blocks: %d \n", nBlocks);
+  // printf("number of blocks: %d \n", nBlocks);
   cudaEventRecord(stop, 0);
   cudaDeviceSynchronize();
   cudaEventElapsedTime(&elapsed_time_ms, start, stop);
@@ -259,9 +373,6 @@ void calcRemainingVar(float* h_data, float* h_out, int dimx, int nBlocks, float*
 int run_welford() {
   int dimx = 1024*1024*2;
 
-  int nreps = 10;
-  int niterations = 5;
-
   int nbytes = dimx * sizeof(float);
 
   float *d_data = 0, *h_data = 0, *h_out, *h_gold = 0, *d_out = 0;
@@ -283,7 +394,7 @@ int run_welford() {
   float sum = 0;
   for (int i = 0; i < dimx ; i++) {
     h_gold[i] = 1.0f + 100*(float)rand()/(float)RAND_MAX;
-    h_gold[i] = static_cast<float>(i%2);
+    h_gold[i] = 1.0f + static_cast<float>(i%2);
     sum+= h_gold[i];
   }
   printf("sum vector: %f\n", sum);
