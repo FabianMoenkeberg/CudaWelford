@@ -105,17 +105,14 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
  
     extern __shared__ float sdata[];
 
-    int diff = n0;
-    int N = 2*blockDim.x;
-
-    int Nhalf = N/2;
+    int Nhalf = blockDim.x;
     int Nhalf0 = Nhalf;
     unsigned int tid = threadIdx.x;
 
     int idx =  blockIdx.x * (blockDim.x) + tid;
     int idx2 = tid + Nhalf;
     int dT = Nhalf;
-    float T, T2, T0;
+    float T, T2, diffT;
     float M = 0.0f;
     float M2 = 0.0f;
     
@@ -136,14 +133,13 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
       sdata[wid] = M;
       sdata[wid + dT] = T;
     }
-    diff = 2*warpSize;
+    n0 = 2*warpSize;
     
-    Nhalf/=diff;
+    Nhalf/=n0;
     
     __syncthreads();
     if (!firstRun){
-      M = sdata[tid];
-      
+      M = sdata[tid];  
       M2 = sdata[tid + Nhalf];
     }else{
       M = sdata[tid];
@@ -155,19 +151,20 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
         
         if (tid < Nhalf)
         {
+          // calculateOneWelfordStep(sdata, T, T2, diffT, M, M2);
           T = sdata[tid+dT];
           T2 = sdata[idx2+dT];
 
-          T0 = (T - T2);
+          diffT = (T - T2);
           
-          M += M2 + T0*T0/(2*diff);
+          M += M2 + diffT*diffT/(2*n0);
           sdata[tid] = M;
           T += T2;
           
           sdata[tid+dT] = T;
         }
-        diff*=2;
-        Nhalf /=2;
+        n0*=2;
+        Nhalf/=2;
         __syncthreads();
         M2 = sdata[tid + Nhalf];
     }
