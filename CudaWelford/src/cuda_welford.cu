@@ -72,18 +72,17 @@ long N = 0;
     var = M/(N-1);
 }
 
-__inline__ __device__ void warpReduceWelford(float& T0in, float& T2in, float& Min, float& M2in, int warpSize) {
+__inline__ __device__ void warpReduceWelford(float& T0in, float& T2in, float& Min, float& M2in, int warpSize, int n) {
   float T0 = T0in;
   float T2 = T2in;
   float M = Min;
   float M2 = M2in;
-  int n = 1;
   float diff;
-  // printf("Warp00 %d: M2 %f, T2 %f, M %f, T %f\n", threadIdx.x, M2, T2, M, T0);
+  // if (n>1024) printf("Warp00 %d: M2 %f, T2 %f, M %f, T %f\n", threadIdx.x, M2, T2, M, T0);
   for (int offset = warpSize/2; offset > 0; offset /= 2){ 
     diff = (T0 - T2);
     // printf("Diff %d, diff %f, M %f, M2 %f, n %d, %f\n", threadIdx.x, diff, M, M2, n);
-    M = M + M2 + diff*diff/(2*n);
+    M += M2 + diff*diff/(2*n);
     T0 += T2;
     // printf("Warp0 %d: M2 %f, T2 %f, M %f, T %f\n", threadIdx.x, M2, T2, M, T0);
     // __syncthreads();
@@ -94,17 +93,18 @@ __inline__ __device__ void warpReduceWelford(float& T0in, float& T2in, float& Mi
   }
 
   diff = (T0 - T2);
-  M += M2 + T0*T0/(2*n);
+  M += M2 + diff*diff/(2*n);
   T0 += T2;
 
   T0in = T0;
   Min = M;
-  // return M;
 }
 
 // Note: try to run her again with just smaller size and different structure. See output and take it as input
 __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firstRun) {
+ 
     extern __shared__ float sdata[];
+
     int diff = n0;
     int N = 2*blockDim.x;
 
@@ -126,7 +126,7 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
       int lane = tid % warpSize;
       int wid = threadIdx.x / warpSize;
       
-      warpReduceWelford(T, T2, M, M2, warpSize);
+      warpReduceWelford(T, T2, M, M2, warpSize, 1);
       
       if (lane==0) {
         // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
@@ -138,8 +138,27 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
       Nhalf/=diff;
 
     }else{
-      sdata[tid] = g_out[idx]; // e.g. M
-      sdata[tid + Nhalf] = g_data[idx]; // e.g. T
+      // sdata[tid] = g_out[idx]; // e.g. M
+      // sdata[tid + Nhalf] = g_data[idx]; // e.g. T
+      T = g_data[idx]; // e.g. M
+      T2 = g_data[idx2];
+      M = g_out[idx]; // e.g. M
+      M2 = g_out[idx2];
+      // int warpSize = WarpSize();
+      int lane = tid % warpSize;
+      int wid = threadIdx.x / warpSize;
+      // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
+      warpReduceWelford(T, T2, M, M2, warpSize, n0);
+      
+      if (lane==0) {
+        // printf("Nhalf %d\n", n0);
+        // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
+        sdata[wid] = M;
+        sdata[wid + dT] = T;
+      }
+      diff *= 2*warpSize;
+      N/=2*warpSize;
+      Nhalf/=2*warpSize;
     }
     // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
     // printf("Idx %d, %d, %d, %d\n", idx, dimx, dT, Nhalf);
@@ -147,8 +166,8 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
     __syncthreads();
     if (!firstRun){
       M = sdata[tid];
-      N/=2;
-      Nhalf/=2;
+      // N/=2;
+      // Nhalf/=2;
       M2 = sdata[tid + Nhalf];
     }else{
       M = sdata[tid];
@@ -318,12 +337,15 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
   kernelWelfordWarp<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1, true);
   // printf("test000 %d", nBlocks); 
   dimx = nBlocks;
-  blockSize = min(1024, dimx);
+  blockSize = min(1024, dimx/2);
   // printf("Blocksize: %d\n", blockSize);
-  nBlocks = dimx/blockSize;
+  nBlocks = dimx/blockSize/2;
   block.x = blockSize;
   grid.x = nBlocks;
-  kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1024, false);
+
+  kernelWelfordWarp<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 2*1024, false);
+  // kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1024, false);
+
 
   // kernelWelford<<<grid, block>>>(d_data, d_out, dimx);
 }
@@ -412,7 +434,6 @@ int run_welford() {
   float* totmean = &mean0;
   calcRemainingVar(h_data, h_out, dimx, nBlocks, totvar, totmean);
 
-  std::cout << *totvar/(dimx-1) << std::endl;
   float meanCuda = *totmean/dimx;
   float varCuda = *totvar/(dimx-1);
   printf("Runtime Cuda: %f\n", time);
@@ -428,7 +449,7 @@ int run_welford() {
   float mean2 = 0;
   float var2 = 0;
   computeCpuStatisticsTest(h_gold, dimx, mean2, var2);
-  bool passCuda = checkResults(mean2, var2, meanCuda, varCuda, rel_tol);
+  bool passCuda = checkResults(meanCuda, varCuda, mean2, var2, rel_tol);
   bool pass = checkResults(mean, var, mean2, var2, rel_tol);
 
   if (pass && passCuda) {
