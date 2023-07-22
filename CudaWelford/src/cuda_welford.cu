@@ -138,13 +138,8 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
     Nhalf/=n0;
     
     __syncthreads();
-    if (!firstRun){
-      M = sdata[tid];  
-      M2 = sdata[tid + Nhalf];
-    }else{
-      M = sdata[tid];
-      M2 = sdata[tid + Nhalf];
-    }
+    M = sdata[tid];
+    M2 = sdata[tid + Nhalf];
     
     while (Nhalf>0){
         idx2 = tid + Nhalf;
