@@ -119,62 +119,36 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
     float M = 0.0f;
     float M2 = 0.0f;
     
-    if (firstRun){
-      T = g_data[idx]; // e.g. M
-      T2 = g_data[idx2];
-      // int warpSize = WarpSize();
-      int lane = tid % warpSize;
-      int wid = threadIdx.x / warpSize;
-      
-      warpReduceWelford(T, T2, M, M2, warpSize, 1);
-      
-      if (lane==0) {
-        // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
-        sdata[wid] = M;
-        sdata[wid + dT] = T;
-      }
-      diff = 2*warpSize;
-      N/=diff;
-      Nhalf/=diff;
-
-    }else{
-      // sdata[tid] = g_out[idx]; // e.g. M
-      // sdata[tid + Nhalf] = g_data[idx]; // e.g. T
-      T = g_data[idx]; // e.g. M
-      T2 = g_data[idx2];
+    if (!firstRun){
       M = g_out[idx]; // e.g. M
       M2 = g_out[idx2];
-      // int warpSize = WarpSize();
-      int lane = tid % warpSize;
-      int wid = threadIdx.x / warpSize;
-      // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
-      warpReduceWelford(T, T2, M, M2, warpSize, n0);
-      
-      if (lane==0) {
-        // printf("Nhalf %d\n", n0);
-        // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
-        sdata[wid] = M;
-        sdata[wid + dT] = T;
-      }
-      diff *= 2*warpSize;
-      N/=2*warpSize;
-      Nhalf/=2*warpSize;
     }
-    // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
-    // printf("Idx %d, %d, %d, %d\n", idx, dimx, dT, Nhalf);
-    // printf("Init %f, %f\n", sdata[tid], sdata[tid + Nhalf]);
+
+    T = g_data[idx]; // e.g. M
+    T2 = g_data[idx2];
+    
+    int lane = tid % warpSize;
+    int wid = threadIdx.x / warpSize;
+    
+    warpReduceWelford(T, T2, M, M2, warpSize, 1);
+    
+    if (lane==0) {
+      sdata[wid] = M;
+      sdata[wid + dT] = T;
+    }
+    diff = 2*warpSize;
+    
+    Nhalf/=diff;
+    
     __syncthreads();
     if (!firstRun){
       M = sdata[tid];
-      // N/=2;
-      // Nhalf/=2;
+      
       M2 = sdata[tid + Nhalf];
     }else{
       M = sdata[tid];
       M2 = sdata[tid + Nhalf];
-      // printf("Nhalf %d", Nhalf);
     }
-    // printf("ResultsWarp: %f, %f, %d, %d\n", M, T, tid, dT);
     
     while (Nhalf>0){
         idx2 = tid + Nhalf;
@@ -183,18 +157,17 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
         {
           T = sdata[tid+dT];
           T2 = sdata[idx2+dT];
-          // printf("Values %f, %f, %f, %f\n", M, M2, T, T2);
+
           T0 = (T - T2);
           
           M += M2 + T0*T0/(2*diff);
           sdata[tid] = M;
           T += T2;
-          dT = Nhalf0;
+          
           sdata[tid+dT] = T;
         }
         diff*=2;
-        N /= 2;
-        Nhalf = N/2;
+        Nhalf /=2;
         __syncthreads();
         M2 = sdata[tid + Nhalf];
     }
