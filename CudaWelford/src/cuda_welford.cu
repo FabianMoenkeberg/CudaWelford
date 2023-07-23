@@ -102,7 +102,7 @@ __inline__ __device__ void warpReduceWelford(float& T0in, float& T2in, float& Mi
 
 // Note: try to run her again with just smaller size and different structure. See output and take it as input
 __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firstRun) {
- 
+
     extern __shared__ float sdata[];
 
     int Nhalf = blockDim.x;
@@ -111,6 +111,7 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
 
     int idx =  blockIdx.x * (blockDim.x) + tid;
     int idx2 = tid + Nhalf;
+
     int dT = Nhalf;
     float T, T2, diffT;
     float M = 0.0f;
@@ -126,9 +127,9 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
     
     int lane = tid % warpSize;
     int wid = threadIdx.x / warpSize;
-    
-    warpReduceWelford(T, T2, M, M2, warpSize, 1);
-    
+
+    warpReduceWelford(T, T2, M, M2, warpSize, n0);
+
     if (lane==0) {
       sdata[wid] = M;
       sdata[wid + dT] = T;
@@ -138,31 +139,17 @@ __global__ void kernelWelfordWarp(float *g_data, float *g_out, int n0, bool firs
     Nhalf/=n0;
     
     __syncthreads();
-    M = sdata[tid];
-    M2 = sdata[tid + Nhalf];
-    
-    while (Nhalf>0){
-        idx2 = tid + Nhalf;
-        
-        if (tid < Nhalf)
-        {
-          // calculateOneWelfordStep(sdata, T, T2, diffT, M, M2);
-          T = sdata[tid+dT];
-          T2 = sdata[idx2+dT];
-
-          diffT = (T - T2);
-          
-          M += M2 + diffT*diffT/(2*n0);
-          sdata[tid] = M;
-          T += T2;
-          
-          sdata[tid+dT] = T;
-        }
-        n0*=2;
-        Nhalf/=2;
-        __syncthreads();
-        M2 = sdata[tid + Nhalf];
+    if (tid < Nhalf)
+    {
+      idx2 = tid + Nhalf;
+      M = sdata[tid];
+      M2 = sdata[idx2];
+      T = sdata[tid+dT];
+      T2 = sdata[idx2+dT];
+      
+      warpReduceWelford(T, T2, M, M2, min(Nhalf, warpSize), n0);
     }
+
     if (tid == 0){
       g_data[blockIdx.x] = T;//(blockDim.x*2);
       // printf("Results kernel T: %f, %d, %f, %d \n", T, blockDim.x*2, g_out[blockIdx.x+gridDim.x], blockIdx.x);
@@ -298,17 +285,19 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
   nBlocks = dimx/2/blockSize;
   dim3 block(blockSize, 1);
   dim3 grid(nBlocks, 1);
-  // printf("test00 %d", blockSize);
+  // printf("test00 blockSize %d, nblocks %d\n", blockSize, nBlocks);
   kernelWelfordWarp<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1, true);
   // printf("test000 %d", nBlocks); 
-  dimx = nBlocks;
-  blockSize = min(1024, dimx/2);
-  // printf("Blocksize: %d\n", blockSize);
-  nBlocks = dimx/blockSize/2;
-  block.x = blockSize;
-  grid.x = nBlocks;
+  if (nBlocks > 1){
+    dimx = nBlocks;
+    blockSize = min(1024, dimx/2);
+    // printf("Blocksize: %d\n", blockSize);
+    nBlocks = dimx/2/blockSize;
+    block.x = blockSize;
+    grid.x = nBlocks;
 
-  kernelWelfordWarp<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 2*1024, false);
+    kernelWelfordWarp<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 2*1024, false);
+  }
   // kernelWelford2B<<<grid, block, blockSize*2*sizeof(float)>>>(d_data, d_out, 1024, false);
 
 
