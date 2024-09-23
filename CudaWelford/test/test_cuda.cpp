@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <random>
 #include <fstream>
-#include "../src/example_device_reduce.cu"
+// #include "../src/example_device_reduce.cu"
 
 TEST(Cuda, base)
 {
