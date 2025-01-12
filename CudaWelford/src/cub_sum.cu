@@ -59,10 +59,12 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     cudaMalloc((void**)&dout, sizeof(float)*1 );
 
     gpu_timer.Start();
+    // Determine temporary storage size with nullptr
     CubDebugExit(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, d_input, dsum, N, sum_op, init));
 
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
 
+    // Perform reduction with sum_op
     CubDebugExit(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, d_input, dsum, N, sum_op, init));
 
     cudaDeviceSynchronize();
