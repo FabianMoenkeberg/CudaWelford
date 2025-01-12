@@ -27,7 +27,8 @@
  ******************************************************************************/
 
 
-#pragma once
+#ifndef TEST_UTIL_H
+#define TEST_UTIL_H
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
@@ -36,25 +37,25 @@
     #include <sys/resource.h>
 #endif
 
-#include <cstdio>
-#include <cfloat>
-#include <cmath>
-#include <cstddef>
+// #include <cstdio>
+// #include <cfloat>
+// #include <cmath>
+// #include <cstddef>
 
-#include <string>
-#include <vector>
-#include <sstream>
-#include <iostream>
-#include <limits>
+// #include <string>
+// #include <vector>
+// #include <sstream>
+// #include <iostream>
+// #include <limits>
 
-#include "mersenne.h"
-#include "half.h"
+// #include "mersenne.h"
+// #include "half.h"
 
-#include "cub/util_debug.cuh"
-#include "cub/util_device.cuh"
-#include "cub/util_type.cuh"
-#include "cub/util_macro.cuh"
-#include "cub/iterator/discard_output_iterator.cuh"
+// #include "cub/util_debug.cuh"
+// #include "cub/util_device.cuh"
+// #include "cub/util_type.cuh"
+// #include "cub/util_macro.cuh"
+// #include "cub/iterator/discard_output_iterator.cuh"
 
 /******************************************************************************
  * Type conversion macros
@@ -1276,62 +1277,62 @@
  ******************************************************************************/
 
 
-struct CpuTimer
-{
-#if defined(_WIN32) || defined(_WIN64)
+// struct CpuTimer
+// {
+// #if defined(_WIN32) || defined(_WIN64)
 
-    LARGE_INTEGER ll_freq;
-    LARGE_INTEGER ll_start;
-    LARGE_INTEGER ll_stop;
+//     LARGE_INTEGER ll_freq;
+//     LARGE_INTEGER ll_start;
+//     LARGE_INTEGER ll_stop;
 
-    CpuTimer()
-    {
-        QueryPerformanceFrequency(&ll_freq);
-    }
+//     CpuTimer()
+//     {
+//         QueryPerformanceFrequency(&ll_freq);
+//     }
 
-    void Start()
-    {
-        QueryPerformanceCounter(&ll_start);
-    }
+//     void Start()
+//     {
+//         QueryPerformanceCounter(&ll_start);
+//     }
 
-    void Stop()
-    {
-        QueryPerformanceCounter(&ll_stop);
-    }
+//     void Stop()
+//     {
+//         QueryPerformanceCounter(&ll_stop);
+//     }
 
-    float ElapsedMillis()
-    {
-        double start = double(ll_start.QuadPart) / double(ll_freq.QuadPart);
-        double stop  = double(ll_stop.QuadPart) / double(ll_freq.QuadPart);
+//     float ElapsedMillis()
+//     {
+//         double start = double(ll_start.QuadPart) / double(ll_freq.QuadPart);
+//         double stop  = double(ll_stop.QuadPart) / double(ll_freq.QuadPart);
 
-        return float((stop - start) * 1000);
-    }
+//         return float((stop - start) * 1000);
+//     }
 
-#else
+// #else
 
-    rusage start;
-    rusage stop;
+//     rusage start;
+//     rusage stop;
 
-    void Start()
-    {
-        getrusage(RUSAGE_SELF, &start);
-    }
+//     void Start()
+//     {
+//         getrusage(RUSAGE_SELF, &start);
+//     }
 
-    void Stop()
-    {
-        getrusage(RUSAGE_SELF, &stop);
-    }
+//     void Stop()
+//     {
+//         getrusage(RUSAGE_SELF, &stop);
+//     }
 
-    float ElapsedMillis()
-    {
-        float sec = stop.ru_utime.tv_sec - start.ru_utime.tv_sec;
-        float usec = stop.ru_utime.tv_usec - start.ru_utime.tv_usec;
+//     float ElapsedMillis()
+//     {
+//         float sec = stop.ru_utime.tv_sec - start.ru_utime.tv_sec;
+//         float usec = stop.ru_utime.tv_usec - start.ru_utime.tv_usec;
 
-        return (sec * 1000) + (usec / 1000);
-    }
+//         return (sec * 1000) + (usec / 1000);
+//     }
 
-#endif
-};
+// #endif
+// };
 
 struct GpuTimer
 {
@@ -1368,3 +1369,5 @@ struct GpuTimer
         return elapsed;
     }
 };
+
+#endif

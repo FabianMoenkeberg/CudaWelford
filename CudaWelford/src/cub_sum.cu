@@ -34,10 +34,10 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     }
     // Allocate device memory for input
     point* d_input;
-    cudaMalloc((void**)&d_input, sizeof(point) * N);
+    cudaMalloc((void**)&d_input, sizeof(point) * (N));
 
     // Copy input data from host to device
-    cudaMemcpy(d_input, input.data(), sizeof(point) * N,cudaMemcpyHostToDevice);
+    cudaMemcpy(d_input, input.data(), sizeof(point) * (N),cudaMemcpyHostToDevice);
 
     // Compute the mean
     CustomSum sum_op;
@@ -52,7 +52,7 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     cudaMemcpy(&dinit, &init, sizeof(point) * 1, cudaMemcpyHostToDevice);
 
     // output on host side
-    void            *d_temp_storage = NULL;
+    void            *d_temp_storage = nullptr;
     size_t          temp_storage_bytes = 0;
 
     float* dout ;
@@ -88,13 +88,15 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
 
 int cubCustomSum() {
     
-    const int N = 1024*1024*2;
+    // const int N = 1024*1024*2;
+    const int N = 8;
     std::vector<float> input(N);// = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
 
     float sum = 0;
     for (int i = 0; i < N ; i++) {
         input[i] = 1.0f + 100*(float)rand()/(float)RAND_MAX;
         input[i] = static_cast<float>(i%2);
+        input[i] = i;
         sum+= input[i];
     }
 
