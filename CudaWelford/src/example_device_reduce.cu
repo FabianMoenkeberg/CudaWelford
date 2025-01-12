@@ -39,6 +39,8 @@
 // Ensure printing of CUDA runtime errors to console
 #define CUB_STDERR
 
+#include "../include/example_device_reduce.h"
+
 #include <stdio.h>
 
 #include <cub/util_allocator.cuh>

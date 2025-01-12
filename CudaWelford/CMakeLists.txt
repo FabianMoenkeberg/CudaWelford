@@ -1,6 +1,6 @@
 enable_language(CUDA)
 
-# add_subdirectory(test)
+add_subdirectory(test)
 
 add_library(CUDAWELFORD
     src/cuda_prog_all.cu

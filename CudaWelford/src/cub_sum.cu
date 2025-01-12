@@ -1,3 +1,4 @@
+#include "cub_sum.h"
 #include "test_util.h"
 
 #include <cuda_runtime.h>
@@ -22,23 +23,6 @@ bool checkResultsCUB(float& mean, float &var, float& mean2, float& var2, float r
   
   return true;
 }
-
-
-struct point {
-    float M;
-    float T;
-    float N;
-};
-
-struct CustomSum
-{
-    __device__ __forceinline__
-    point operator()(const point &a, const point &b) const {
-        point res{0, a.T + b.T, a.N + b.N};
-        return res;
-    }
-};
-
 
 void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     GpuTimer gpu_timer;

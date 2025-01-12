@@ -1,9 +1,9 @@
 #include "CudaWelford/src/cuda_prog_all.cu"
 #include "CudaWelford/src/cuda_prog.cu"
-#include "CudaWelford/src/cuda_welford.cu"
-#include "CudaWelford/src/cub_welford.cu"
-#include "CudaWelford/src/example_device_reduce.cu"
-#include "CudaWelford/src/cub_sum.cu"
+#include "CudaWelford/include/cuda_welford.h"
+#include "CudaWelford/include/cub_welford.h"
+#include "CudaWelford/include/example_device_reduce.h"
+// #include "CudaWelford/include/cub_sum.h"
 
 /* Includes, cuda */
 #include <cuda_runtime.h>
@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
   string_retval[0] = new char[100];
   std::cout << "Start New!" << std::endl;
   example_device_reduce(argc, argv);
-  cubCustomSum();
+  // cubCustomSum();
 
   // cubWelford();
   // run_welford();

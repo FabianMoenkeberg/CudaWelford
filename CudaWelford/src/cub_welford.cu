@@ -1,3 +1,6 @@
+#include "../include/cub_welford.h"
+#include "../include/cub_sum.h"
+
 #include "test_util.h"
 
 #include <cuda_runtime.h>
@@ -8,7 +11,7 @@
 #include <cub/util_allocator.cuh>
 #include <cub/device/device_reduce.cuh>
 
-#include "cub_sum.cu"
+#include "cub_sum.h"
 
 #include <iostream>
 #include <vector>
