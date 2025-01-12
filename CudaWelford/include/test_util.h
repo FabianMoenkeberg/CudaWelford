@@ -328,170 +328,46 @@ struct CommandLineArgs
  * Random bits generator
  ******************************************************************************/
 
-int g_num_rand_samples = 0;
+extern int g_num_rand_samples;
 
 
 template <typename T>
 bool IsNaN(T /* val */) { return false; }
 
 template<>
-__noinline__ bool IsNaN<float>(float val)
-{
-  return std::isnan(val);
-}
+__noinline__ bool IsNaN<float>(float val);
 
 template<>
-__noinline__ bool IsNaN<float1>(float1 val)
-{
-    return (IsNaN(val.x));
-}
+__noinline__ bool IsNaN<float1>(float1 val);
 
 template<>
-__noinline__ bool IsNaN<float2>(float2 val)
-{
-    return (IsNaN(val.y) || IsNaN(val.x));
-}
+__noinline__ bool IsNaN<float2>(float2 val);
 
 template<>
-__noinline__ bool IsNaN<float3>(float3 val)
-{
-    return (IsNaN(val.z) || IsNaN(val.y) || IsNaN(val.x));
-}
+__noinline__ bool IsNaN<float3>(float3 val);
 
 template<>
-__noinline__ bool IsNaN<float4>(float4 val)
-{
-    return (IsNaN(val.y) || IsNaN(val.x) || IsNaN(val.w) || IsNaN(val.z));
-}
+__noinline__ bool IsNaN<float4>(float4 val);
 
 template<>
-__noinline__ bool IsNaN<double>(double val)
-{
-  return std::isnan(val);
-}
+__noinline__ bool IsNaN<double>(double val);
 
 template<>
-__noinline__ bool IsNaN<double1>(double1 val)
-{
-    return (IsNaN(val.x));
-}
+__noinline__ bool IsNaN<double1>(double1 val);
 
 template<>
-__noinline__ bool IsNaN<double2>(double2 val)
-{
-    return (IsNaN(val.y) || IsNaN(val.x));
-}
+__noinline__ bool IsNaN<double2>(double2 val);
 
 template<>
-__noinline__ bool IsNaN<double3>(double3 val)
-{
-    return (IsNaN(val.z) || IsNaN(val.y) || IsNaN(val.x));
-}
+__noinline__ bool IsNaN<double3>(double3 val);
 
 template<>
-__noinline__ bool IsNaN<double4>(double4 val)
-{
-    return (IsNaN(val.y) || IsNaN(val.x) || IsNaN(val.w) || IsNaN(val.z));
-}
+__noinline__ bool IsNaN<double4>(double4 val);
 
 
 template<>
-__noinline__ bool IsNaN<half_t>(half_t val)
-{
-    const auto bits = SafeBitCast<unsigned short>(val);
+__noinline__ bool IsNaN<half_t>(half_t val);
 
-    // commented bit is always true, leaving for documentation:
-    return (((bits >= 0x7C01) && (bits <= 0x7FFF)) ||
-        ((bits >= 0xFC01) /*&& (bits <= 0xFFFFFFFF)*/));
-}
-
-
-
-/**
- * Generates random keys.
- *
- * We always take the second-order byte from rand() because the higher-order
- * bits returned by rand() are commonly considered more uniformly distributed
- * than the lower-order bits.
- *
- * We can decrease the entropy level of keys by adopting the technique
- * of Thearling and Smith in which keys are computed from the bitwise AND of
- * multiple random samples:
- *
- * entropy_reduction    | Effectively-unique bits per key
- * -----------------------------------------------------
- * -1                   | 0
- * 0                    | 32
- * 1                    | 25.95 (81%)
- * 2                    | 17.41 (54%)
- * 3                    | 10.78 (34%)
- * 4                    | 6.42 (20%)
- * ...                  | ...
- *
- */
-template <typename K>
-void RandomBits(
-    K &key,
-    int entropy_reduction = 0,
-    int begin_bit = 0,
-    int end_bit = sizeof(K) * 8)
-{
-    const int NUM_BYTES = sizeof(K);
-    const int WORD_BYTES = sizeof(unsigned int);
-    const int NUM_WORDS = (NUM_BYTES + WORD_BYTES - 1) / WORD_BYTES;
-
-    unsigned int word_buff[NUM_WORDS];
-
-    if (entropy_reduction == -1)
-    {
-        memset((void *) &key, 0, sizeof(key));
-        return;
-    }
-
-    if (end_bit < 0)
-        end_bit = sizeof(K) * 8;
-
-    while (true)
-    {
-        // Generate random word_buff
-        for (int j = 0; j < NUM_WORDS; j++)
-        {
-            int current_bit = j * WORD_BYTES * 8;
-
-            unsigned int word = 0xffffffff;
-            word &= 0xffffffff << CUB_MAX(0, begin_bit - current_bit);
-            word &= 0xffffffff >> CUB_MAX(0, (current_bit + (WORD_BYTES * 8)) - end_bit);
-
-            for (int i = 0; i <= entropy_reduction; i++)
-            {
-                // Grab some of the higher bits from rand (better entropy, supposedly)
-                word &= mersenne::genrand_int32();
-                g_num_rand_samples++;
-            }
-
-            word_buff[j] = word;
-        }
-
-        memcpy(&key, word_buff, sizeof(K));
-
-        K copy = key;
-        if (!IsNaN(copy))
-            break;          // avoids NaNs when generating random floating point numbers
-    }
-}
-
-/// Randomly select number between [0:max)
-template <typename T>
-T RandomValue(T max)
-{
-    unsigned int bits;
-    unsigned int max_int = (unsigned int) -1;
-    do {
-        RandomBits(bits);
-    } while (bits == max_int);
-
-    return (T) ((double(bits) / double(max_int)) * double(max));
-}
 
 
 /******************************************************************************
@@ -526,86 +402,6 @@ enum GenMode
     RANDOM,             // Assign to random, regardless of integer seed
     RANDOM_BIT,         // Assign to randomly chosen 0 or 1, regardless of integer seed
 };
-
-/**
- * Initialize value
- */
-template <typename T>
-__host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, T &value, int index = 0)
-{
-    switch (gen_mode)
-    {
-#if (CUB_PTX_ARCH == 0)
-    case RANDOM:
-        RandomBits(value);
-        break;
-    case RANDOM_BIT:
-        char c;
-        RandomBits(c, 0, 0, 1);
-        value = (c > 0) ? (T) 1 : (T) -1;
-        break;
-#endif
-     case UNIFORM:
-        value = 2;
-        break;
-    case INTEGER_SEED:
-    default:
-         value = (T) index;
-        break;
-    }
-}
-
-
-/**
- * Initialize value (bool)
- */
-__host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, bool &value, int index = 0)
-{
-    switch (gen_mode)
-    {
-#if (CUB_PTX_ARCH == 0)
-    case RANDOM:
-    case RANDOM_BIT:
-        char c;
-        RandomBits(c, 0, 0, 1);
-        value = (c > 0);
-        break;
-#endif
-     case UNIFORM:
-        value = true;
-        break;
-    case INTEGER_SEED:
-    default:
-        value = (index > 0);
-        break;
-    }
-}
-
-
-/**
- * cub::NullType test initialization
- */
-__host__ __device__ __forceinline__ void InitValue(GenMode /* gen_mode */,
-						   cub::NullType &/* value */,
-						   int /* index */ = 0)
-{}
-
-
-/**
- * cub::KeyValuePair<OffsetT, ValueT>test initialization
- */
-template <typename KeyT, typename ValueT>
-__host__ __device__ __forceinline__ void InitValue(
-    GenMode                             gen_mode,
-    cub::KeyValuePair<KeyT, ValueT>&    value,
-    int                                 index = 0)
-{
-    InitValue(gen_mode, value.value, index);
-
-    // Assign corresponding flag with a likelihood of the last bit being set with entropy-reduction level 3
-    RandomBits(value.key, 3);
-    value.key = (value.key & 0x1);
-}
 
 
 
@@ -654,11 +450,7 @@ std::ostream& operator<<(std::ostream& os, const cub::KeyValuePair<Key, Value> &
     {                                                       \
         return (a.x == b.x);                                \
     }                                                       \
-    /* Test initialization */                               \
-    __host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, T &value, int index = 0)   \
-    {                                                       \
-        InitValue(gen_mode, value.x, index);                \
-    }                                                       \
+                                                     \
     /* Max */                                               \
     __host__ __device__ __forceinline__ bool operator>(     \
         const T &a,                                         \
@@ -738,11 +530,7 @@ std::ostream& operator<<(std::ostream& os, const cub::KeyValuePair<Key, Value> &
             (a.y == b.y);                                   \
     }                                                       \
     /* Test initialization */                               \
-    __host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, T &value, int index = 0)   \
-    {                                                       \
-        InitValue(gen_mode, value.x, index);                \
-        InitValue(gen_mode, value.y, index);                \
-    }                                                       \
+                                                      \
     /* Max */                                               \
     __host__ __device__ __forceinline__ bool operator>(     \
         const T &a,                                         \
@@ -830,13 +618,7 @@ std::ostream& operator<<(std::ostream& os, const cub::KeyValuePair<Key, Value> &
             (a.y == b.y) &&                                 \
             (a.z == b.z);                                   \
     }                                                       \
-    /* Test initialization */                               \
-    __host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, T &value, int index = 0)   \
-    {                                                       \
-        InitValue(gen_mode, value.x, index);                \
-        InitValue(gen_mode, value.y, index);                \
-        InitValue(gen_mode, value.z, index);                \
-    }                                                       \
+                                                          \
     /* Max */                                               \
     __host__ __device__ __forceinline__ bool operator>(     \
         const T &a,                                         \
@@ -931,14 +713,7 @@ std::ostream& operator<<(std::ostream& os, const cub::KeyValuePair<Key, Value> &
             (a.z == b.z) &&                                 \
             (a.w == b.w);                                   \
     }                                                       \
-    /* Test initialization */                               \
-    __host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, T &value, int index = 0)   \
-    {                                                       \
-        InitValue(gen_mode, value.x, index);                \
-        InitValue(gen_mode, value.y, index);                \
-        InitValue(gen_mode, value.z, index);                \
-        InitValue(gen_mode, value.w, index);                \
-    }                                                       \
+                                                      \
     /* Max */                                               \
     __host__ __device__ __forceinline__ bool operator>(     \
         const T &a,                                         \
@@ -1105,16 +880,7 @@ std::ostream& operator<<(std::ostream& os, const TestFoo& val)
     return os;
 }
 
-/**
- * TestFoo test initialization
- */
-__host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, TestFoo &value, int index = 0)
-{
-    InitValue(gen_mode, value.x, index);
-    InitValue(gen_mode, value.y, index);
-    InitValue(gen_mode, value.z, index);
-    InitValue(gen_mode, value.w, index);
-}
+
 
 
 /// numeric_limits<TestFoo> specialization
@@ -1224,14 +990,7 @@ std::ostream& operator<<(std::ostream& os, const TestBar& val)
     return os;
 }
 
-/**
- * TestBar test initialization
- */
-__host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, TestBar &value, int index = 0)
-{
-    InitValue(gen_mode, value.x, index);
-    InitValue(gen_mode, value.y, index);
-}
+
 
 /// numeric_limits<TestBar> specialization
 namespace cub {
@@ -1509,42 +1268,6 @@ void DisplayDeviceResults(
 
     // Cleanup
     if (h_data) free(h_data);
-}
-
-
-/******************************************************************************
- * Segment descriptor generation
- ******************************************************************************/
-
-/**
- * Initialize segments
- */
-void InitializeSegments(
-    int     num_items,
-    int     num_segments,
-    int     *h_segment_offsets,
-    bool    verbose = false)
-{
-    if (num_segments <= 0)
-        return;
-
-    unsigned int expected_segment_length = (num_items + num_segments - 1) / num_segments;
-    int offset = 0;
-    for (int i = 0; i < num_segments; ++i)
-    {
-        h_segment_offsets[i] = offset;
-
-        unsigned int segment_length = RandomValue((expected_segment_length * 2) + 1);
-        offset += segment_length;
-        offset = CUB_MIN(offset, num_items);
-    }
-    h_segment_offsets[num_segments] = num_items;
-
-    if (verbose)
-    {
-        printf("Segment offsets: ");
-        DisplayResults(h_segment_offsets, num_segments + 1);
-    }
 }
 
 

@@ -46,7 +46,7 @@
 #include <cub/util_allocator.cuh>
 #include <cub/device/device_reduce.cuh>
 
-#include "test_util.h"
+#include "../include/test_util.h"
 
 using namespace cub;
 

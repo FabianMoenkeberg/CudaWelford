@@ -1,7 +1,7 @@
 #include "../include/cub_welford.h"
 #include "../include/cub_sum.h"
 
-#include "test_util.h"
+#include "../include/test_util.h"
 
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -217,7 +217,7 @@ int cubWelford() {
     cubReduceAlgorithm(input, mean, nOut, var);
 
 
-    printf("Mean: %f, Var: %f, pure: %f, %f, %f\n", mean/N, var/N, mean, var, N);
+    printf("Mean: %f, Var: %f, pure: %f, %f, %d\n", mean/N, var/N, mean, var, N);
     std::cout << "Variance: " << mean << std::endl;
 
     return 0;

@@ -9,6 +9,7 @@ add_library(CUDAWELFORD
     src/cub_welford.cu
     src/example_device_reduce.cu
     src/cub_sum.cu
+    src/test_util.cpp
     )
     
 target_include_directories(CUDAWELFORD PUBLIC

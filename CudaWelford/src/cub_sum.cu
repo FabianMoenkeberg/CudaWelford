@@ -1,5 +1,5 @@
 #include "cub_sum.h"
-#include "test_util.h"
+#include "../include/test_util.h"
 
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
