@@ -101,8 +101,8 @@ int cubCustomSum() {
     cubSumAlgorithm(input, sumRes);
     
 
-    printf("Mean: %f\n", sumRes);
-    std::cout << "Sum: " << sum << std::endl;
+    printf("Sum: %f\n", sumRes);
+    std::cout << "Sum calculated manually: " << sum << " Difference between sum and cub-sum: " << sum - sumRes << std::endl;
 
     return 0;
 }

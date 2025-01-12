@@ -1,7 +1,7 @@
 #include "../include/cub_welford.h"
 #include "../include/cub_sum.h"
 
-#include "../include/test_util.h"
+// #include "../include/test_util.h"
 
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -49,7 +49,7 @@ struct SubstractPow
 };
 
 void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
-    GpuTimer gpu_timer;
+    // GpuTimer gpu_timer;
     float elapsed_millis = 0.0;
     int N = input.size();
 
@@ -73,7 +73,7 @@ void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     float* dout ;
     cudaMalloc((void**)&dout, sizeof(float)*1 );
 
-    gpu_timer.Start();
+    // gpu_timer.Start();
     CubDebugExit(DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_input, dmean, N));
 
     cudaDeviceSynchronize();
@@ -104,8 +104,8 @@ void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, input_iter, dout, N, Sum(), 0);
 
     cudaDeviceSynchronize();
-    gpu_timer.Stop();
-    elapsed_millis = gpu_timer.ElapsedMillis();
+    // gpu_timer.Stop();
+    // elapsed_millis = gpu_timer.ElapsedMillis();
 
     cudaDeviceSynchronize();
     printf("Run time: %f\n", elapsed_millis);
@@ -133,7 +133,7 @@ struct WelfordOp
 };
 
 void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& Nout, float& varNOut){
-    GpuTimer gpu_timer;
+    // GpuTimer gpu_timer;
     float elapsed_millis = 0.0;
     int N = input0.size();
     std::vector<point> input(N);
@@ -166,7 +166,7 @@ void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& 
     float* dout ;
     cudaMalloc((void**)&dout, sizeof(float)*1 );
 
-    gpu_timer.Start();
+    // gpu_timer.Start();
     CubDebugExit(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, d_input, dsum, N, wel_op, init));
 
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
@@ -180,8 +180,8 @@ void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& 
     varNOut = sum.M;
 
     cudaDeviceSynchronize();
-    gpu_timer.Stop();
-    elapsed_millis = gpu_timer.ElapsedMillis();
+    // gpu_timer.Stop();
+    // elapsed_millis = gpu_timer.ElapsedMillis();
 
     cudaDeviceSynchronize();
     printf("Run time: %f\n", elapsed_millis);
