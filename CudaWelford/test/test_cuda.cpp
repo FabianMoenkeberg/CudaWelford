@@ -10,17 +10,17 @@ TEST(Cuda, cubSum){
    CubSum::cubCustomSum();
 }
 
-TEST(Cuda, customCuda){
+TEST(Cuda, customCudaWelford){
 
    run_welford();
 }
 
-TEST(Cuda, CubWelfordMultistep){
+TEST(Cuda, CubVarianceMultistep){
 
    cubVarianceReduceMultiCall();
 }
 
-TEST(Cuda, CubCustomSum){
+TEST(Cuda, CubWelford){
 
    cubWelfordReduceSingle();
 }
