@@ -17,7 +17,7 @@ TEST(Cuda, customCuda){
 
 TEST(Cuda, CubWelfordMultistep){
 
-   cubWelfordReduceMultiCall();
+   cubVarianceReduceMultiCall();
 }
 
 TEST(Cuda, CubCustomSum){

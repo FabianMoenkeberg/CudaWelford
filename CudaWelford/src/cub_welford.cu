@@ -204,7 +204,7 @@ void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& 
     cudaFree(dsum);
 }
 
-int cubWelfordReduceMultiCall() {
+int cubVarianceReduceMultiCall() {
     
     const int N = 1024*1024*2;
     // const int N = 8;

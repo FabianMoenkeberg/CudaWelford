@@ -4,4 +4,4 @@
 
 int cubWelfordReduceSingle();
 
-int cubWelfordReduceMultiCall();
+int cubVarianceReduceMultiCall();
