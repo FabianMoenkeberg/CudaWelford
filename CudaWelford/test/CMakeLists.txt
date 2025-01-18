@@ -1,6 +1,5 @@
 enable_language(CUDA)
 enable_testing()
-message(INFO " Cuda_test running 1.")
 
 include(FetchContent)
 
@@ -13,7 +12,7 @@ FetchContent_MakeAvailable(googletest)
 add_library(GTest::GTest INTERFACE IMPORTED)
 
 target_link_libraries(GTest::GTest INTERFACE gtest_main)
-message(INFO " Cuda_test running 2.")
+
 add_executable(cuda_test 
   test_cuda.cpp
   )
@@ -30,8 +29,6 @@ target_link_libraries(cuda_test
   )
 
 add_test(NAME cuda_gtests COMMAND cuda_test)
-
-message(INFO " Cuda_test running 3.")
 
 # Specify the source directory containing the data folder
 set(DATA_SOURCE_DIR "${CMAKE_SOURCE_DIR}/CudaWelford/test/data")

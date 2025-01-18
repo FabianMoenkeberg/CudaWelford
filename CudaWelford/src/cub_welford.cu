@@ -203,7 +203,7 @@ void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& 
     cudaFree(dsum);
 }
 
-int cubWelford() {
+int cubWelfordReduceMultiCall() {
     
     const int N = 1024*1024*2;
     // const int N = 8;
@@ -224,6 +224,26 @@ int cubWelford() {
 
     printf("Mean: %f, Var: %f\n", mean, var);
     std::cout << "Variance: " << mean << std::endl;
+
+    return 0;
+}
+
+int cubWelfordReduceSingle() {
+    
+    const int N = 1024*1024*2;
+    // const int N = 8;
+    std::vector<float> input(N);// = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+
+    float sum = 0;
+    for (int i = 0; i < N ; i++) {
+        input[i] = 1.0f + 100*(float)rand()/(float)RAND_MAX;
+        input[i] = static_cast<float>(i%2);
+        sum+= input[i];
+    }
+
+    float mean = 0;
+    float var = 0;
+    float nOut = 0;
 
     cubReduceAlgorithm(input, mean, nOut, var);
 

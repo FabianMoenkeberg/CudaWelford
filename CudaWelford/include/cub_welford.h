@@ -1,3 +1,7 @@
 #pragma once
 
-int cubWelford();
+// int cubWelford();
+
+int cubWelfordReduceSingle();
+
+int cubWelfordReduceMultiCall();

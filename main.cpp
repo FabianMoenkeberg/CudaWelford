@@ -28,7 +28,9 @@ int main(int argc, char* argv[])
   example_device_reduce(argc, argv);
   cubCustomSum();
 
-  cubWelford();
+  cubWelfordReduceMultiCall();
+
+  cubWelfordReduceSingle();
   
   run_welford();
 }
