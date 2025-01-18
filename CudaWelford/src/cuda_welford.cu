@@ -1,3 +1,6 @@
+#include "../include/cuda_welford.h"
+#include "../include/test_util.h"
+
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 #include <cuda_fp16.h>
@@ -308,6 +311,7 @@ void launchKernelWelford(float * d_data, float *d_out, int dimx, int& nBlocks) {
 
 float algorithmWelford(float *d_data, float *d_out, int dimx, int& nBlocks) {
   float elapsed_time_ms = 0.0f;
+  GpuTimer gpu_timer;
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -318,9 +322,13 @@ float algorithmWelford(float *d_data, float *d_out, int dimx, int& nBlocks) {
   
   // printf("number of blocks: %d \n", nBlocks);
   cudaEventRecord(stop, 0);
+  
+  gpu_timer.Start();
   cudaDeviceSynchronize();
-  cudaEventElapsedTime(&elapsed_time_ms, start, stop);
+  gpu_timer.Stop();
 
+  cudaEventElapsedTime(&elapsed_time_ms, start, stop);
+  elapsed_time_ms =  gpu_timer.ElapsedMillis();
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
 
@@ -412,10 +420,10 @@ int run_welford() {
     printf("FAIL:  results are incorrect\n");
   }  
 
-  float elapsed_time_ms = 0.0f;
+  // float elapsed_time_ms = 0.0f;
  
 //   elapsed_time_ms = timing_experiment(d_data, dimx, dimy, niterations, nreps);
-  printf("A:  %8.2f ms\n", elapsed_time_ms);
+  // printf("A:  %8.2f ms\n", elapsed_time_ms);
 
   printf("CUDA: %s\n", cudaGetErrorString(cudaGetLastError()));
 

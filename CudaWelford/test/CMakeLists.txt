@@ -1,3 +1,6 @@
+enable_language(CUDA)
+enable_testing()
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -7,18 +10,25 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 add_library(GTest::GTest INTERFACE IMPORTED)
+
 target_link_libraries(GTest::GTest INTERFACE gtest_main)
 
 add_executable(cuda_test 
   test_cuda.cpp
   )
 
-target_link_libraries(cuda_test
- PRIVATE
-  GTest::GTest
-  CUDAWELFORD)
+set_target_properties(cuda_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_test(cuda_gtests cuda_test)
+target_link_libraries(cuda_test
+ PUBLIC
+  GTest::GTest
+  CUDAWELFORD
+  ${CUDAToolkit_LIBRARIES}
+    CUDA::cudart 
+    CUDA::cublas
+  )
+
+add_test(NAME cuda_gtests COMMAND cuda_test)
 
 # Specify the source directory containing the data folder
 set(DATA_SOURCE_DIR "${CMAKE_SOURCE_DIR}/CudaWelford/test/data")
@@ -28,3 +38,5 @@ set(DATA_DEST_DIR "${CMAKE_BINARY_DIR}")
 
 # Copy the data folder from the source directory to the destination directory
 file(COPY "${DATA_SOURCE_DIR}" DESTINATION "${DATA_DEST_DIR}")
+
+add_dependencies(CudaRun cuda_test)

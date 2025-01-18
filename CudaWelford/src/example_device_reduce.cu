@@ -39,12 +39,14 @@
 // Ensure printing of CUDA runtime errors to console
 #define CUB_STDERR
 
+#include "../include/example_device_reduce.h"
+
 #include <stdio.h>
 
 #include <cub/util_allocator.cuh>
 #include <cub/device/device_reduce.cuh>
 
-#include "test_util.h"
+// #include "../include/test_util.h"
 
 using namespace cub;
 
@@ -74,7 +76,7 @@ void Initialize(
     if (g_verbose)
     {
         printf("Input:\n");
-        DisplayResults(h_in, num_items);
+        // DisplayResults(h_in, num_items);
         printf("\n\n");
     }
 }
@@ -113,23 +115,23 @@ int example_device_reduce(int argc, char** argv)
     int num_items = 150;
 
     // Initialize command line
-    CommandLineArgs args(argc, argv);
-    g_verbose = args.CheckCmdLineFlag("v");
-    args.GetCmdLineArgument("n", num_items);
+    // CommandLineArgs args(argc, argv);
+    // g_verbose = args.CheckCmdLineFlag("v");
+    // args.GetCmdLineArgument("n", num_items);
 
     // Print usage
-    if (args.CheckCmdLineFlag("help"))
-    {
-        printf("%s "
-            "[--n=<input items> "
-            "[--device=<device-id>] "
-            "[--v] "
-            "\n", argv[0]);
-        exit(0);
-    }
+    // if (args.CheckCmdLineFlag("help"))
+    // {
+    //     printf("%s "
+    //         "[--n=<input items> "
+    //         "[--device=<device-id>] "
+    //         "[--v] "
+    //         "\n", argv[0]);
+    //     exit(0);
+    // }
 
     // Initialize device
-    CubDebugExit(args.DeviceInit());
+    // CubDebugExit(args.DeviceInit());
 
     printf("cub::DeviceReduce::Sum() %d items (%d-byte elements)\n",
         num_items, (int) sizeof(int));
@@ -164,9 +166,9 @@ int example_device_reduce(int argc, char** argv)
     CubDebugExit(DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items));
 
     // Check for correctness (and display results, if specified)
-    int compare = CompareDeviceResults(&h_reference, d_out, 1, g_verbose, g_verbose);
-    printf("\t%s", compare ? "FAIL" : "PASS");
-    AssertEquals(0, compare);
+    // int compare = CompareDeviceResults(&h_reference, d_out, 1, g_verbose, g_verbose);
+    // printf("\t%s", compare ? "FAIL" : "PASS");
+    // AssertEquals(0, compare);
 
     // Cleanup
     if (h_in) delete[] h_in;

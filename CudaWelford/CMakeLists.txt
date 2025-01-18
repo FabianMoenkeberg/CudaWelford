@@ -1,13 +1,13 @@
 enable_language(CUDA)
 
-# add_subdirectory(test)
-
 add_library(CUDAWELFORD
     src/cuda_prog_all.cu
     src/cuda_prog.cu
     src/cuda_welford.cu
     src/cub_welford.cu
     src/example_device_reduce.cu
+    src/cub_sum.cu
+    src/test_util.cpp
     )
     
 target_include_directories(CUDAWELFORD PUBLIC
@@ -21,3 +21,5 @@ target_link_libraries(CUDAWELFORD PUBLIC
     CUDA::cudart 
     CUDA::cublas
 	)
+
+target_compile_options(CUDAWELFORD PRIVATE)

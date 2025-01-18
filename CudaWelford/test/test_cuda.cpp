@@ -1,25 +1,28 @@
 #include <gtest/gtest.h>
 #include <random>
 #include <fstream>
-#include "../src/example_device_reduce.cu"
+#include "../include/cuda_welford.h"
+#include "../include/cub_welford.h"
+#include "../include/cub_sum.h"
 
-TEST(Cuda, base)
-{
+TEST(Cuda, cubSum){
 
-   ASSERT_EQ(2, 2);
+   CubSum::cubCustomSum();
 }
 
-TEST(Cuda, Cub_welford)
-{
-   // const int argc = 3;
-   //  char* argv[] = {
-   //      (char*)"program_name",
-   //      (char*)"arg1",
-   //      (char*)"arg2"
-   //  };
-   // example_device_reduce(argc, argv);
+TEST(Cuda, customCuda){
 
-   ASSERT_EQ(2, 2);
+   run_welford();
+}
+
+TEST(Cuda, CubWelfordMultistep){
+
+   cubVarianceReduceMultiCall();
+}
+
+TEST(Cuda, CubCustomSum){
+
+   cubWelfordReduceSingle();
 }
 
 
