@@ -4,6 +4,12 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 enable_testing()
 message(INFO " CMAKE version: ${CMAKE_VERSION}")
 
+# Set default build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+message(Info ${CMAKE_BUILD_TYPE})
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 

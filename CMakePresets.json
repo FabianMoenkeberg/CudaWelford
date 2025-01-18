@@ -8,7 +8,7 @@
     "configurePresets": [
         {
             "name": "FirstOne",
-            "displayName": "Visual Studio Professional 2019 Release - amd64_x86",
+            "displayName": "Visual Studio Professional 2019 Debug - amd64_x86",
             "description": "Using compilers for Visual Studio 16 2019 (x64_x86 architecture)",
             "generator": "Visual Studio 16 2019",
             "architecture": "win32",
@@ -19,22 +19,48 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/",
                 "CMAKE_VERBOSE_MAKEFILE": "TRUE"
             }
+        },
+        {
+            "name": "CudaConfigRelease",
+            "displayName": "Visual Studio Professional 2019 Release - amd64_x86",
+            "description": "Using compilers for Visual Studio 16 2019 (x64_x86 architecture)",
+            "generator": "Visual Studio 16 2019",
+            "architecture": "win32",
+            "binaryDir": "${sourceDir}/build/",
+            "cacheVariables": {
+                "BUILD_GTEST": "ON",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/",
+                "CMAKE_VERBOSE_MAKEFILE": "TRUE"
+            }
         }
     ],
     "buildPresets": [
         {
             "name": "FirstOne-debug",
-            "displayName": "Visual Studio Professional 2019 Release - amd64_x86 - Debug",
+            "displayName": "Visual Studio Professional 2019 Debug - amd64_x86 - Debug",
             "configurePreset": "FirstOne",
             "configuration": "Debug"
+        },
+        {
+            "name": "FirstOne-release",
+            "displayName": "Visual Studio Professional 2019 Release - amd64_x86 - Release",
+            "configurePreset": "CudaConfigRelease",
+            "configuration": "Release"
         }
     ],
     "testPresets": [
     {
-      "name": "Test_First",
+      "name": "Test_First_Debug",
       "configurePreset": "FirstOne",
       "output": {"outputOnFailure": true},
       "execution": {"noTestsAction": "error", "stopOnFailure": false}
+    },
+    {
+        "name": "Test_First_Release",
+        "configurePreset": "CudaConfigRelease",
+        "output": {"outputOnFailure": true},
+        "execution": {"noTestsAction": "error", "stopOnFailure": false}
     }
   ]
 }
