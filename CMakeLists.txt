@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
-
+enable_testing()
 message(INFO " CMAKE version: ${CMAKE_VERSION}")
 
 
@@ -55,3 +55,7 @@ target_link_libraries(CudaRun
     CUDA::cudart 
     CUDA::cublas
     )
+
+add_subdirectory(CudaWelford/test)
+
+    

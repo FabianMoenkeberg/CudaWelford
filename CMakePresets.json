@@ -1,18 +1,23 @@
 {
-    "version": 2,
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
     "configurePresets": [
         {
             "name": "FirstOne",
             "displayName": "Visual Studio Professional 2019 Release - amd64_x86",
             "description": "Using compilers for Visual Studio 16 2019 (x64_x86 architecture)",
             "generator": "Visual Studio 16 2019",
-            "toolset": "host=x64",
             "architecture": "win32",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "binaryDir": "${sourceDir}/build/",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_C_COMPILER": "cl.exe",
-                "CMAKE_CXX_COMPILER": "cl.exe"
+                "BUILD_GTEST": "ON",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/",
+                "CMAKE_VERBOSE_MAKEFILE": "TRUE"
             }
         }
     ],
@@ -23,5 +28,13 @@
             "configurePreset": "FirstOne",
             "configuration": "Debug"
         }
-    ]
+    ],
+    "testPresets": [
+    {
+      "name": "Test_First",
+      "configurePreset": "FirstOne",
+      "output": {"outputOnFailure": true},
+      "execution": {"noTestsAction": "error", "stopOnFailure": false}
+    }
+  ]
 }
