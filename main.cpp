@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
   string_retval[0] = new char[100];
   std::cout << "Start New!" << std::endl;
   example_device_reduce(argc, argv);
-  cubCustomSum();
+  CubSum::cubCustomSum();
 
   cubWelfordReduceMultiCall();
 

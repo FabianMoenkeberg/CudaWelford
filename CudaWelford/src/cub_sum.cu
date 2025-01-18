@@ -6,12 +6,23 @@
 #include <cuda_fp16.h>
 #include <cub/cub.cuh>
 
-#include <cub/util_allocator.cuh>
-#include <cub/device/device_reduce.cuh>
+// #include <cub/util_allocator.cuh>
+// #include <cub/device/device_reduce.cuh>
 
 #include <stdio.h>
 #include <limits.h>
 #include <iostream>
+
+namespace CubSum{
+struct CustomSum
+    {
+        __device__ __forceinline__
+        point operator()(const point &a, const point &b) const {
+            point res{0, a.T + b.T, a.N + b.N};
+            // printf(" %f, %f, %f. ands %f \n", a.M, a.T, a.N, b.T);
+            return res;
+        }
+    };
 
 bool checkResultsCUB(float& mean, float &var, float& mean2, float& var2, float rel_tol) {
     printf("mean = %f, var = %f and mean_ref = %f and var_ref = %f \n", mean, var, mean2, var2);
@@ -109,4 +120,6 @@ int cubCustomSum() {
     std::cout << "Sum calculated manually: " << sum << " Difference between sum and cub-sum: " << sum - sumRes << std::endl;
 
     return 0;
+}
+
 }

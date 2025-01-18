@@ -17,6 +17,7 @@
 #include <vector>
 
 using namespace cub;
+using namespace CubSum;
 
 struct CustomMin
     {
