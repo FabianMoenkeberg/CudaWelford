@@ -5,12 +5,12 @@
 #include "../include/cub_welford.h"
 #include "../include/cub_sum.h"
 
-TEST(Cuda, cubSum){
+TEST(Cuda, CubSum){
 
    CubSum::cubCustomSum();
 }
 
-TEST(Cuda, customCudaWelford){
+TEST(Cuda, CustomCudaWelford){
 
    run_welford();
 }
