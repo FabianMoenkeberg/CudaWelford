@@ -6,9 +6,6 @@
 #include <cuda_fp16.h>
 #include <cub/cub.cuh>
 
-// #include <cub/util_allocator.cuh>
-// #include <cub/device/device_reduce.cuh>
-
 #include <stdio.h>
 #include <limits.h>
 #include <iostream>
@@ -19,7 +16,7 @@ struct CustomSum
         __device__ __forceinline__
         point operator()(const point &a, const point &b) const {
             point res{0, a.T + b.T, a.N + b.N};
-            // printf(" %f, %f, %f. ands %f \n", a.M, a.T, a.N, b.T);
+
             return res;
         }
     };
@@ -35,14 +32,20 @@ bool checkResultsCUB(float& mean, float &var, float& mean2, float& var2, float r
   return true;
 }
 
+/// @brief Calculate the Sum of a vector using a Custom Summation operation that is similar to the Welford operator
+/// @param input0 
+/// @param sumOut 
 void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     GpuTimer gpu_timer;
     float elapsed_millis = 0.0;
     int N = input0.size();
+
+    // Assign values to a vector that can be processed by CUB
     std::vector<point> input(N);
     for (int i = 0; i < N;++i){
         input.at(i) = point{0, input0.at(i), 1};
     }
+
     // Allocate device memory for input
     point* d_input;
     cudaMalloc((void**)&d_input, sizeof(point) * (N));
@@ -50,7 +53,7 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     // Copy input data from host to device
     cudaMemcpy(d_input, input.data(), sizeof(point) * (N),cudaMemcpyHostToDevice);
 
-    // Compute the mean
+    // Initialize values and allocate memory on device
     CustomSum sum_op;
     point init{0, 0, 0}; 
     point sum;
@@ -59,10 +62,11 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     point* dsum ;
     cudaMalloc((void**)&dsum, sizeof(point) );
     cudaMalloc((void**)&dinit, sizeof(point) );
+
     // Copy input data from host to device
     cudaMemcpy(&dinit, &init, sizeof(point) * 1, cudaMemcpyHostToDevice);
 
-    // output on host side
+    // Initialize output on host side and allocate memory on device
     void            *d_temp_storage = nullptr;
     size_t          temp_storage_bytes = 0;
 
@@ -79,6 +83,8 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
     CubDebugExit(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, d_input, dsum, N, sum_op, init));
 
     cudaDeviceSynchronize();
+
+    // Copy result from device to host
     cudaMemcpy(&sum, dsum, sizeof(point) * 1, cudaMemcpyDeviceToHost);
     sumOut = sum.T;
 
@@ -97,12 +103,14 @@ void cubSumAlgorithm(const std::vector<float>& input0, float& sumOut){
 }
 
 
+/// @brief Test function of the custom sum
+/// @return 
 int cubCustomSum() {
     
-    // const int N = 1024*1024*2;
-    const int N = 8;
+    const int N = 1024*1024*2;
     std::vector<float> input(N);// = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
 
+    // initialize some float values around 1.0
     float sum = 0;
     for (int i = 0; i < N ; i++) {
         input[i] = 1.0f + 100*(float)rand()/(float)RAND_MAX;
@@ -113,6 +121,7 @@ int cubCustomSum() {
 
     float sumRes = 0;
 
+    // Execute the custom cub sum
     cubSumAlgorithm(input, sumRes);
     
 

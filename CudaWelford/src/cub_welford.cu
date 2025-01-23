@@ -36,6 +36,8 @@ struct Pow2
     }
 };
 
+/// @brief Fast way to calculate (a-const)^2 on a single cub transformation call.
+/// constant is set in the constructor.
 struct SubstractPow
 {
     float constant = 0.0f;
@@ -49,6 +51,10 @@ struct SubstractPow
     }
 };
 
+/// @brief Classical Multicall Method to calculate the Variance with CUB. 
+/// @param input vector from which we calculate variance.
+/// @param mean     Resulting mean
+/// @param var      Resulting variance
 void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     GpuTimer gpu_timer;
     float elapsed_millis = 0.0;
@@ -61,7 +67,7 @@ void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     // Copy input data from host to device
     cudaMemcpy(d_input, input.data(), sizeof(float) * N, cudaMemcpyHostToDevice);
 
-    // Compute the mean
+    // Initialize mean on device
     
     float* dmean ;
     cudaMalloc((void**)&dmean, sizeof(float) );
@@ -75,33 +81,38 @@ void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     cudaMalloc((void**)&dout, sizeof(float)*1 );
 
     gpu_timer.Start();
+    // Determine temporary storage size with nullptr
     CubDebugExit(DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_input, dmean, N));
 
     cudaDeviceSynchronize();
 
-    // CubDebugExit(g_allocator.DeviceAllocate(&d_temp_storage, temp_storage_bytes));
     cudaMalloc((void**)&d_temp_storage, temp_storage_bytes);
 
     cudaDeviceSynchronize();
 
+    // 1. Run Reduction to Calculate Sum to calculate Mean value after.
     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_input, dmean, N);
 
     cudaDeviceSynchronize();
+    // Copy sum from device to host
     cudaMemcpy(&mean, dmean, sizeof(float) * 1, cudaMemcpyDeviceToHost);
 
     mean /= N;
+    // Initialize Subtract and power operator
     SubstractPow subPow_op(mean);
 
+    // 2. Apply Subtraction of mean to each value and take the value to the power of 2.
     CacheModifiedInputIterator<LOAD_LDG,float> cached_iter(d_input);
     TransformInputIterator<float, SubstractPow, CacheModifiedInputIterator<LOAD_LDG, float> > input_iter(cached_iter, subPow_op);
     // cub::TransformInputIterator<float, SubstractPow, float*> input_iter(d_input, subPow_op);
 
+    // Determine temporary storage size with nullptr
     cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, input_iter, dout, N, Sum(), 0);
     
     // Allocate temporary storage
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
     
-    // Run reduction
+    // 3. Run Reduction to Calculate Sum of the vector and afterwards mean.
     cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, input_iter, dout, N, Sum(), 0);
 
     cudaDeviceSynchronize();
@@ -112,6 +123,7 @@ void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     printf("Run time: %f\n", elapsed_millis);
 
     var = 0;
+    // Copy result from device to host
     cudaMemcpy(&var, dout, sizeof(float) * 1, cudaMemcpyDeviceToHost);
 
     var/=(N-1);
@@ -123,6 +135,8 @@ void cubBaseAlgorithm(const std::vector<float>& input, float& mean, float& var){
     cudaFree(dmean);
 }
 
+/// @brief Reduction operator to calculate the variance in a single pass using the Welford algorithm.
+/// Similar to CustomSum operator in cub_sum.cu
 struct WelfordOp
 {
     __device__ __forceinline__
@@ -131,14 +145,11 @@ struct WelfordOp
             return b;
         }
         float diff = (a.N/b.N*b.T-a.T);
-        // printf(" %f, %f, %f. \n", a.M, a.T, a.N);
-        // printf(" %f, %f, %f. => %f \n", b.M, b.T, b.N, diff);
-        // point res{a.M + b.M + a.N*diff*diff/((a.N+b.N)*b.N), a.T + b.T, a.N + b.N};
         point res{b.M + a.M + b.N*diff*diff/((b.N+a.N)*a.N), b.T + a.T, a.N + b.N};
-        // printf(" %f, %f, %f. end\n", res.M, res.T, res.N);
         return res;
     }
 };
+
 
 void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& Nout, float& varNOut){
     GpuTimer gpu_timer;
@@ -176,20 +187,24 @@ void cubReduceAlgorithm(const std::vector<float>& input0, float& sumOut, float& 
     cudaMalloc((void**)&dout, sizeof(float)*1 );
 
     gpu_timer.Start();
-    // Determine temporary storage size with nullptr
+    // Determine temporary storage size with nullptr and allocate it
     CubDebugExit(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, d_input, dsum, N, wel_op, init));
 
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
-    // Run Reduction
+
+    // Run Welford Reduction
     CubDebugExit(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, d_input, dsum, N, wel_op, init));
 
     cudaDeviceSynchronize();
+
+    // Copy result from device to host
     cudaMemcpy(&sum, dsum, sizeof(point) * 1, cudaMemcpyDeviceToHost);
     printf(" %f, %f, %f. \n", sum.M, sum.T,sum.N);
     sumOut = sum.T;
     Nout = sum.N;
     varNOut = sum.M;
 
+    // Measure time
     cudaDeviceSynchronize();
     gpu_timer.Stop();
     elapsed_millis = gpu_timer.ElapsedMillis();

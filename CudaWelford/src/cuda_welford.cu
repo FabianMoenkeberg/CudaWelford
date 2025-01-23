@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <iostream>
 
+
 bool checkResults(float& mean, float &var, float& mean2, float& var2, float rel_tol) {
     printf("mean = %f, var = %f and mean_ref = %f and var_ref = %f \n", mean, var, mean2, var2);
 

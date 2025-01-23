@@ -1,6 +1,5 @@
 #pragma once
 
-// int cubWelford();
 
 int cubWelfordReduceSingle();
 
