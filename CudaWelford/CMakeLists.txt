@@ -1,8 +1,6 @@
 enable_language(CUDA)
 
 add_library(CUDAWELFORD
-    src/cuda_prog_all.cu
-    src/cuda_prog.cu
     src/cuda_welford.cu
     src/cub_welford.cu
     src/example_device_reduce.cu

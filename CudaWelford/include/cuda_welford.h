@@ -1,3 +1,3 @@
 #pragma once
 
-int run_welford();
+int run_welford(int optimization);

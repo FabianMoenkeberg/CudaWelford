@@ -1,5 +1,3 @@
-#include "CudaWelford/src/cuda_prog_all.cu"
-#include "CudaWelford/src/cuda_prog.cu"
 #include "CudaWelford/include/cuda_welford.h"
 #include "CudaWelford/include/cub_welford.h"
 #include "CudaWelford/include/example_device_reduce.h"
@@ -32,7 +30,7 @@ int main(int argc, char* argv[])
 
   cubWelfordReduceSingle();
   
-  run_welford();
+  run_welford(2);
 }
 
 // #include <stdio.h>
